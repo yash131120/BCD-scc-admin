@@ -290,8 +290,13 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
                 {/* Video Info */}
                 <div className="p-4">
-                  
-                  
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => updateMediaTitle(item.id, e.target.value)}
+                    className="w-full text-sm font-medium px-2 py-1 mb-2 bg-transparent border border-transparent rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Video title"
+                  />
                   <div className="flex items-center justify-between">
                     <p className="text-xs text-gray-500 truncate flex-1 mr-2" title={item.url}>
                       {item.url}
