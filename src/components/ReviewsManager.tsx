@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, X, ExternalLink, Star } from 'lucide-react';
+import { Plus, X, ExternalLink, Star, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface Review {
@@ -26,10 +26,12 @@ export const ReviewsManager: React.FC<ReviewsManagerProps> = ({
     review_url: ''
   });
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
 
   // Load reviews from database on component mount
   useEffect(() => {
     loadReviews();
+    // eslint-disable-next-line
   }, [cardId]);
 
   const loadReviews = async () => {
@@ -72,7 +74,7 @@ export const ReviewsManager: React.FC<ReviewsManagerProps> = ({
 
     try {
       setUploading(true);
-      
+
       const reviewData = {
         card_id: cardId,
         title: newReview.title,
@@ -185,7 +187,7 @@ export const ReviewsManager: React.FC<ReviewsManagerProps> = ({
               <X className="w-5 h-5" />
             </button>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -209,7 +211,7 @@ export const ReviewsManager: React.FC<ReviewsManagerProps> = ({
                 value={newReview.review_url}
                 onChange={(e) => setNewReview({ ...newReview, review_url: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="https://review.sccinfotech.com/scc-infotech-llp"
+                placeholder="https://review.sccinfotech.com/{business-name}"
               />
               <p className="text-xs text-gray-500 mt-1">
                 Link to your Google Reviews, testimonials page, or any review platform
@@ -246,47 +248,44 @@ export const ReviewsManager: React.FC<ReviewsManagerProps> = ({
       {reviews.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {reviews.map((review) => (
-            <div key={review.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div
+              key={review.id}
+              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow flex flex-col"
+            >
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg flex items-center justify-center">
-                      <Star className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div className="flex-1">
-                      <input
-                        type="text"
-                        value={review.title}
-                        onChange={(e) => updateReviewTitle(review.id, e.target.value)}
-                        className="w-full text-sm font-medium px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Review title"
-                      />
-                    </div>
+                <div className="flex-1 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-yellow-50 rounded-lg flex items-center justify-center">
+                    <Star className="w-5 h-5 text-yellow-600" />
                   </div>
-                  
-                  <p className="text-xs text-gray-500 truncate mb-3" title={review.review_url}>
-                    {review.review_url}
-                  </p>
-                  
-                  <a
-                    href={review.review_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    View Reviews
-                  </a>
+                  <input
+                    type="text"
+                    value={review.title}
+                    onChange={(e) => updateReviewTitle(review.id, e.target.value)}
+                    className="flex-1 text-sm font-medium px-2 py-1 bg-transparent border border-transparent rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                    placeholder="Review title"
+                    style={{ minWidth: 0 }}
+                  />
                 </div>
-                
                 <button
                   onClick={() => handleRemoveReview(review.id)}
-                  className="ml-2 p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  className="ml-2 p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
                   title="Remove review link"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
+              <p className="text-xs text-gray-500 truncate mt-2 mb-4" title={review.review_url}>
+                {review.review_url}
+              </p>
+              <a
+                href={review.review_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm w-fit"
+              >
+                <ExternalLink className="w-4 h-4" />
+                View Reviews
+              </a>
             </div>
           ))}
         </div>
