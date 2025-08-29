@@ -14,7 +14,10 @@ import {
   Facebook,
   Youtube,
   MessageCircle,
-  MapPin
+  MapPin,
+  Star,
+  ExternalLink,
+  Play
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { exportToPNG, exportToPDF, generateQRCode } from '../utils/exportUtils';
@@ -27,6 +30,8 @@ type SocialLink = Database['public']['Tables']['social_links']['Row'];
 interface CardData {
   card: BusinessCard;
   socialLinks: SocialLink[];
+  mediaItems: any[];
+  reviews: any[];
 }
 
 const SOCIAL_ICONS: Record<string, React.ComponentType<any>> = {
@@ -81,9 +86,27 @@ export const PublicCard: React.FC = () => {
         throw new Error('Failed to load social links');
       }
 
+      // Fetch media items
+      const { data: mediaItems } = await supabase
+        .from('media_items')
+        .select('*')
+        .eq('card_id', cardData.id)
+        .eq('is_active', true)
+        .order('display_order');
+
+      // Fetch review links
+      const { data: reviewLinks } = await supabase
+        .from('review_links')
+        .select('*')
+        .eq('card_id', cardData.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
       setCardData({
         card: cardData,
-        socialLinks: socialLinks || []
+        socialLinks: socialLinks || [],
+        mediaItems: mediaItems || [],
+        reviews: reviewLinks || []
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card');
@@ -147,7 +170,7 @@ export const PublicCard: React.FC = () => {
     );
   }
 
-  const { card, socialLinks } = cardData;
+  const { card, socialLinks, mediaItems, reviews } = cardData;
   const theme = card.theme as any || {
     primary: '#3B82F6',
     secondary: '#1E40AF',
@@ -322,6 +345,115 @@ export const PublicCard: React.FC = () => {
                     </a>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Videos Section */}
+            {mediaItems && mediaItems.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-3" style={{ color: theme.secondary }}>
+                  Videos
+                </h3>
+                <div className="grid grid-cols-1 gap-3">
+                  {mediaItems.slice(0, 2).map((item) => (
+                    <div key={item.id} className="bg-gray-50 rounded-lg overflow-hidden">
+                      <div className="relative aspect-video">
+                        {(() => {
+                          // YouTube embed
+                          if (item.url.includes('youtube.com/watch?v=')) {
+                            const videoId = item.url.split('v=')[1]?.split('&')[0];
+                            return (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${videoId}`}
+                                title={item.title}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            );
+                          }
+                          if (item.url.includes('youtu.be/')) {
+                            const videoId = item.url.split('youtu.be/')[1]?.split('?')[0];
+                            return (
+                              <iframe
+                                src={`https://www.youtube.com/embed/${videoId}`}
+                                title={item.title}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                              />
+                            );
+                          }
+                          // Vimeo embed
+                          if (item.url.includes('vimeo.com/')) {
+                            const videoId = item.url.split('vimeo.com/')[1]?.split('?')[0];
+                            return (
+                              <iframe
+                                src={`https://player.vimeo.com/video/${videoId}`}
+                                title={item.title}
+                                className="w-full h-full"
+                                frameBorder="0"
+                                allow="autoplay; fullscreen; picture-in-picture"
+                                allowFullScreen
+                              />
+                            );
+                          }
+                          // Default video link
+                          return (
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="w-full h-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                            >
+                              <Play className="w-8 h-8 text-gray-600" />
+                            </a>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {mediaItems.length > 2 && (
+                  <div className="text-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      +{mediaItems.length - 2} more videos
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Review Links */}
+            {reviews && reviews.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-semibold mb-3" style={{ color: theme.secondary }}>
+                  Reviews
+                </h3>
+                <div className="space-y-2">
+                  {reviews.slice(0, 2).map((review) => (
+                    <a
+                      key={review.id}
+                      href={review.review_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 rounded-lg transition-colors hover:bg-black hover:bg-opacity-5"
+                    >
+                      <Star className="w-4 h-4" style={{ color: theme.primary }} />
+                      <span className="text-sm flex-1">{review.title}</span>
+                      <ExternalLink className="w-3 h-3 opacity-50" />
+                    </a>
+                  ))}
+                </div>
+                {reviews.length > 2 && (
+                  <div className="text-center mt-2">
+                    <span className="text-xs text-gray-500">
+                      +{reviews.length - 2} more review links
+                    </span>
+                  </div>
+                )}
               </div>
             )}
           </div>
