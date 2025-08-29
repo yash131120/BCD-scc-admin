@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Video, Plus, ExternalLink } from 'lucide-react';
+import { X, Loader2, Video, Plus, ExternalLink, Play } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface MediaItem {
@@ -66,11 +66,53 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
   };
 
+  const getVideoEmbedUrl = (url: string) => {
+    // YouTube
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      return `https://www.youtube.com/embed/${videoId}`;
+    }
+    
+    // Vimeo
+    if (url.includes('vimeo.com/')) {
+      const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+      return `https://player.vimeo.com/video/${videoId}`;
+    }
+    
+    return null;
+  };
+
+  const getVideoThumbnail = (url: string) => {
+    // YouTube thumbnail
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
+    
+    return null;
+  };
+
   const handleVideoUrlAdd = async () => {
     if (!newVideoUrl.trim()) return;
 
     try {
       setUploading(true);
+      
+      // Extract title from URL or use default
+      let title = 'Video Link';
+      if (newVideoUrl.includes('youtube.com') || newVideoUrl.includes('youtu.be')) {
+        title = 'YouTube Video';
+      } else if (newVideoUrl.includes('vimeo.com')) {
+        title = 'Vimeo Video';
+      }
       
       // Save to database first
       const { data, error } = await supabase
@@ -78,7 +120,7 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
         .insert({
           card_id: cardId,
           type: 'video',
-          title: 'Video Link',
+          title: title,
           description: '',
           url: newVideoUrl,
           display_order: mediaItems.length,
@@ -155,14 +197,6 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
     }
   };
 
-  const isVideoUrl = (url: string) => {
-    return url.includes('youtube.com') || 
-           url.includes('youtu.be') || 
-           url.includes('vimeo.com') || 
-           url.includes('dailymotion.com') ||
-           url.includes('twitch.tv');
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -204,50 +238,84 @@ export const MediaUpload: React.FC<MediaUploadProps> = ({
 
       {/* Video Links Grid */}
       {mediaItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {mediaItems.map((item) => (
-            <div key={item.id} className="relative group">
-              <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3 flex-1">
-                    <div className="w-12 h-12 bg-gradient-to-br from-red-50 to-purple-50 rounded-lg flex items-center justify-center">
-                      <Video className="w-6 h-6 text-red-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <input
-                        type="text"
-                        value={item.title}
-                        onChange={(e) => updateMediaTitle(item.id, e.target.value)}
-                        className="w-full text-sm font-medium px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent mb-1"
-                        placeholder="Video title"
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {mediaItems.map((item) => {
+            const embedUrl = getVideoEmbedUrl(item.url);
+            const thumbnail = getVideoThumbnail(item.url);
+            
+            return (
+              <div key={item.id} className="bg-white border border-gray-200 rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                {/* Video Preview */}
+                <div className="relative aspect-video bg-gray-100">
+                  {embedUrl ? (
+                    <iframe
+                      src={embedUrl}
+                      title={item.title}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  ) : thumbnail ? (
+                    <div className="relative w-full h-full">
+                      <img
+                        src={thumbnail}
+                        alt={item.title}
+                        className="w-full h-full object-cover"
                       />
-                      <p className="text-xs text-gray-500 truncate" title={item.url}>
-                        {item.url}
-                      </p>
+                      <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                        <div className="w-16 h-16 bg-red-600 rounded-full flex items-center justify-center">
+                          <Play className="w-8 h-8 text-white ml-1" />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-2">
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                      <div className="text-center">
+                        <Video className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">Video Preview</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeMediaItem(item.id)}
+                    className="absolute top-2 right-2 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg"
+                    title="Remove video"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Video Info */}
+                <div className="p-4">
+                  <input
+                    type="text"
+                    value={item.title}
+                    onChange={(e) => updateMediaTitle(item.id, e.target.value)}
+                    className="w-full text-sm font-medium px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent mb-2"
+                    placeholder="Video title"
+                  />
+                  
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate flex-1 mr-2" title={item.url}>
+                      {item.url}
+                    </p>
                     <a
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      className="p-1 text-blue-600 hover:bg-blue-50 rounded transition-colors"
                       title="Open video"
                     >
                       <ExternalLink className="w-4 h-4" />
                     </a>
-                    <button
-                      onClick={() => removeMediaItem(item.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Remove video"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
