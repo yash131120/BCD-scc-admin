@@ -23,6 +23,7 @@ import { supabase } from '../lib/supabase';
 import { exportToPNG, exportToPDF, generateQRCode } from '../utils/exportUtils';
 import { generateSocialLink } from '../utils/socialUtils';
 import type { Database } from '../lib/supabase';
+import ReactModal from 'react-modal'; // npm install react-modal
 
 type BusinessCard = Database['public']['Tables']['business_cards']['Row'];
 type SocialLink = Database['public']['Tables']['social_links']['Row'];
@@ -50,6 +51,8 @@ export const PublicCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showQR, setShowQR] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [activeVideo, setActiveVideo] = useState<number>(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,6 +147,22 @@ export const PublicCard: React.FC = () => {
       navigator.clipboard.writeText(url);
     }
   };
+
+  // Helper to get YouTube thumbnail
+  const getYoutubeThumbnail = (url: string) => {
+    let videoId = '';
+    if (url.includes('youtube.com/watch?v=')) {
+      videoId = url.split('v=')[1]?.split('&')[0];
+    } else if (url.includes('youtu.be/')) {
+      videoId = url.split('youtu.be/')[1]?.split('?')[0];
+    }
+    return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : '';
+  };
+
+  // Helper to check if YouTube/Vimeo
+  const isYoutube = (url: string) =>
+    url.includes('youtube.com/watch?v=') || url.includes('youtu.be/');
+  const isVimeo = (url: string) => url.includes('vimeo.com/');
 
   if (loading) {
     return (
@@ -354,75 +373,124 @@ export const PublicCard: React.FC = () => {
                 <h3 className="text-sm font-semibold mb-3" style={{ color: theme.secondary }}>
                   Videos
                 </h3>
-                <div className="grid grid-cols-1 gap-3">
-                  {mediaItems.slice(0, 2).map((item) => (
-                    <div key={item.id} className="bg-gray-50 rounded-lg overflow-hidden">
-                      <div className="relative aspect-video">
-                        {(() => {
-                          // YouTube embed
-                          if (item.url.includes('youtube.com/watch?v=')) {
-                            const videoId = item.url.split('v=')[1]?.split('&')[0];
-                            return (
+                <div className="grid grid-cols-2 gap-4">
+                  {mediaItems.slice(0, 4).map((item, idx) => (
+                    <button
+                      key={item.id}
+                      className="relative rounded-lg overflow-hidden focus:outline-none group"
+                      onClick={() => { setActiveVideo(idx); setShowVideoModal(true); }}
+                      style={{ aspectRatio: '16/9', background: '#eee' }}
+                    >
+                      {isYoutube(item.url) ? (
+                        <img
+                          src={getYoutubeThumbnail(item.url)}
+                          alt={item.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <Play className="w-10 h-10 text-gray-600" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition">
+                        <Play className="w-12 h-12 text-white" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {mediaItems.length > 4 && (
+                  <div className="text-center mt-3">
+                    <button
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                      onClick={() => { setActiveVideo(0); setShowVideoModal(true); }}
+                    >
+                      View All Videos
+                    </button>
+                  </div>
+                )}
+
+                {/* Video Gallery Modal */}
+                <ReactModal
+                  isOpen={showVideoModal}
+                  onRequestClose={() => setShowVideoModal(false)}
+                  className="fixed inset-0 flex items-center justify-center z-50 bg-black bg-opacity-80"
+                  overlayClassName="fixed inset-0 bg-black bg-opacity-80"
+                  ariaHideApp={false}
+                >
+                  <div className="bg-white rounded-lg p-4 max-w-2xl w-full relative">
+                    <button
+                      className="absolute top-2 right-2 text-gray-600 hover:text-red-600 text-2xl"
+                      onClick={() => setShowVideoModal(false)}
+                    >
+                      &times;
+                    </button>
+                    <div className="flex flex-col items-center">
+                      {mediaItems.map((item, idx) =>
+                        idx === activeVideo ? (
+                          <div key={item.id} className="w-full aspect-video mb-4">
+                            {isYoutube(item.url) ? (
                               <iframe
-                                src={`https://www.youtube.com/embed/${videoId}`}
+                                src={`https://www.youtube.com/embed/${
+                                  item.url.includes('youtube.com/watch?v=')
+                                    ? item.url.split('v=')[1]?.split('&')[0]
+                                    : item.url.split('youtu.be/')[1]?.split('?')[0]
+                                }`}
                                 title={item.title}
-                                className="w-full h-full"
+                                className="w-full h-full rounded"
                                 frameBorder="0"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                 allowFullScreen
                               />
-                            );
-                          }
-                          if (item.url.includes('youtu.be/')) {
-                            const videoId = item.url.split('youtu.be/')[1]?.split('?')[0];
-                            return (
+                            ) : isVimeo(item.url) ? (
                               <iframe
-                                src={`https://www.youtube.com/embed/${videoId}`}
+                                src={`https://player.vimeo.com/video/${
+                                  item.url.split('vimeo.com/')[1]?.split('?')[0]
+                                }`}
                                 title={item.title}
-                                className="w-full h-full"
-                                frameBorder="0"
-                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                allowFullScreen
-                              />
-                            );
-                          }
-                          // Vimeo embed
-                          if (item.url.includes('vimeo.com/')) {
-                            const videoId = item.url.split('vimeo.com/')[1]?.split('?')[0];
-                            return (
-                              <iframe
-                                src={`https://player.vimeo.com/video/${videoId}`}
-                                title={item.title}
-                                className="w-full h-full"
+                                className="w-full h-full rounded"
                                 frameBorder="0"
                                 allow="autoplay; fullscreen; picture-in-picture"
                                 allowFullScreen
                               />
-                            );
-                          }
-                          // Default video link
-                          return (
-                            <a
-                              href={item.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="w-full h-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
-                            >
-                              <Play className="w-8 h-8 text-gray-600" />
-                            </a>
-                          );
-                        })()}
+                            ) : (
+                              <a
+                                href={item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full h-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+                              >
+                                <Play className="w-8 h-8 text-gray-600" />
+                              </a>
+                            )}
+                          </div>
+                        ) : null
+                      )}
+                      <div className="flex gap-2 flex-wrap justify-center">
+                        {mediaItems.map((item, idx) => (
+                          <button
+                            key={item.id}
+                            className={`w-16 h-10 rounded overflow-hidden border-2 ${
+                              idx === activeVideo ? 'border-blue-600' : 'border-transparent'
+                            }`}
+                            onClick={() => setActiveVideo(idx)}
+                          >
+                            {isYoutube(item.url) ? (
+                              <img
+                                src={getYoutubeThumbnail(item.url)}
+                                alt={item.title}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                                <Play className="w-5 h-5 text-gray-600" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-                {mediaItems.length > 2 && (
-                  <div className="text-center mt-2">
-                    <span className="text-xs text-gray-500">
-                      +{mediaItems.length - 2} more videos
-                    </span>
                   </div>
-                )}
+                </ReactModal>
               </div>
             )}
 
