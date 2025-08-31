@@ -86,6 +86,7 @@ export const PublicCard: React.FC = () => {
         .single();
 
       if (cardError) {
+        console.error('Card fetch error:', cardError);
         throw new Error('Card not found or not published');
       }
 
@@ -106,6 +107,7 @@ export const PublicCard: React.FC = () => {
         .from('media_items')
         .select('*')
         .eq('card_id', cardData.id)
+        .eq('type', 'video')
         .eq('is_active', true)
         .order('display_order');
 
@@ -124,6 +126,7 @@ export const PublicCard: React.FC = () => {
         reviews: reviewLinks || []
       });
     } catch (err) {
+      console.error('Load card data error:', err);
       setError(err instanceof Error ? err.message : 'Failed to load card');
     } finally {
       setLoading(false);
@@ -139,6 +142,7 @@ export const PublicCard: React.FC = () => {
         .from('business_cards')
         .select('id')
         .eq('slug', cardId)
+        .eq('is_published', true)
         .single();
 
       if (card) {
@@ -156,7 +160,7 @@ export const PublicCard: React.FC = () => {
         // Update view count
         await supabase
           .from('business_cards')
-          .update({ view_count: (cardData?.card.view_count || 0) + 1 })
+          .update({ view_count: (card.view_count || 0) + 1 })
           .eq('id', card.id);
       }
     } catch (error) {

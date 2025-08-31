@@ -47,6 +47,22 @@ export const useAuth = () => {
       email,
       password,
     });
+    
+    // If signup successful, create profile
+    if (data.user && !error) {
+      try {
+        await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email?.split('@')[0] || 'User'
+          });
+      } catch (profileError) {
+        console.error('Error creating profile:', profileError);
+      }
+    }
+    
     return { data, error };
   };
 

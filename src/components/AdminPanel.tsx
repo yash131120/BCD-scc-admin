@@ -148,6 +148,7 @@ export const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState("basic");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [businessCard, setBusinessCard] = useState<BusinessCard | null>(null);
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>([]);
@@ -277,9 +278,39 @@ export const AdminPanel: React.FC = () => {
     }
   };
 
+  const checkSlugAvailability = async (slug: string, currentCardId?: string) => {
+    if (!slug) return false;
+    
+    try {
+      const { data, error } = await supabase
+        .from('business_cards')
+        .select('id')
+        .eq('slug', slug)
+        .neq('id', currentCardId || '');
+
+      if (error) {
+        console.error('Error checking slug:', error);
+        return false;
+      }
+
+      return data.length === 0; // Available if no other cards use this slug
+    } catch (error) {
+      console.error('Error checking slug:', error);
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     if (!user) return;
 
+    // Check if username/slug is available
+    const isSlugAvailable = await checkSlugAvailability(formData.username, businessCard?.id);
+    if (!isSlugAvailable) {
+      setSlugError(`Username "${formData.username}" is already taken. Please choose a different one.`);
+      return;
+    }
+
+    setSlugError(null);
     setSaving(true);
     try {
       // Update profile with global username
@@ -717,21 +748,19 @@ export const AdminPanel: React.FC = () => {
                             <input
                               type="text"
                               value={formData.username}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  username: e.target.value
-                                    .toLowerCase()
-                                    .replace(/[^a-z0-9]/g, ""),
-                                })
-                              }
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                              placeholder="yourname"
+                              onChange={(e) => {
+                                setFormData({ ...formData, username: e.target.value });
+                                setSlugError(null);
+                              }}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              placeholder="e.g., john-doe"
                             />
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            This will be your card's URL: /c/
-                            {formData.username || "yourname"}
+                          {slugError && (
+                            <p className="text-red-600 text-sm mt-1">{slugError}</p>
+                          )}
+                          <p className="text-sm text-gray-500 mt-1">
+                            This will be your card's public URL: /c/{formData.username || 'username'}
                           </p>
                         </div>
                         <div>
